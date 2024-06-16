@@ -23,8 +23,8 @@
 
   <body>
     <div>
-      <video id="localVideo" autoplay controls></video>
-      <video id="remoteVideo" autoplay controls></video>
+      <video id="localVideo" autoplay playsinline controls></video>
+      <video id="remoteVideo" autoplay playsinline controls></video>
     </div>
 
     <button id="btnStartPush">start push</button>
@@ -33,5 +33,9 @@
     <button id="bthStopPull">stop pull</button>
 
     <script src="./js/screen.js"></script>
+    <script src="//cdn.jsdelivr.net/npm/eruda"></script>
+    <script>
+        eruda.init();
+    </script>
   </body>
 </html>

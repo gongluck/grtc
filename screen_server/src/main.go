@@ -18,8 +18,7 @@ func main() {
 
 	//curl http://www.gongluck.fun/static/screen.txt
 	//curl https://www.gongluck.fun/static/screen.txt
-	fs := http.FileServer(http.Dir("./static"))
-	http.Handle("/static/", http.StripPrefix("/static", fs))
+	http.Handle("/static/", http.StripPrefix("/static", http.FileServer(http.Dir("./static"))))
 
 	var wg sync.WaitGroup
 
