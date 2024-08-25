@@ -34,7 +34,7 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		err := http.ListenAndServeTLS(":8002", "../../cert/gongluck.fun.crt", "../../cert/gongluck.fun.key", nil)
+		err := http.ListenAndServeTLS(":8002", "/root/account/gongluck.fun.crt", "/root/account/gongluck.fun.key", nil)
 		if err != nil {
 			fmt.Println(err)
 		}
