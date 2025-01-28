@@ -2,7 +2,7 @@
  * @Author: gongluck
  * @Date: 2025-01-28 18:59:59
  * @Last Modified by: gongluck
- * @Last Modified time: 2025-01-28 19:52:48
+ * @Last Modified time: 2025-01-29 00:21:37
  */
 
 package main
@@ -53,12 +53,9 @@ type connection struct {
 // 使用sync.Map存储房间
 var rooms sync.Map
 
-// 日志记录器
-var logger = logrus.New()
-
 func main() {
 	// 初始化日志记录器
-	initLogger()
+	initlog()
 
 	// 启动HTTP服务
 	go runHTTPServer()
@@ -71,7 +68,7 @@ func main() {
 }
 
 // 初始化日志记录器，支持文件和控制台输出
-func initLogger() {
+func initlog() {
 	// 创建日志文件
 	file, err := os.OpenFile("server.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
@@ -79,16 +76,19 @@ func initLogger() {
 	}
 
 	// 使用 io.MultiWriter 同时输出到文件和控制台
-	logrus.SetOutput(io.MultiWriter(file, os.Stdout))
+	mw := io.MultiWriter(file, os.Stdout)
+	gin.DefaultWriter = mw
+	logrus.SetOutput(mw)
 	logrus.SetFormatter(&logrus.TextFormatter{ // 设置日志格式
 		DisableColors: false,
 		FullTimestamp: true,
+		ForceColors:   true,
 	})
 }
 
 func runHTTPServer() {
 	gin.SetMode(gin.ReleaseMode) // 设置Gin为发布模式
-	r := gin.New()
+	r := gin.Default()
 	r.Use(gin.Recovery()) // 使用Gin的恢复中间件
 
 	// 注册路由
@@ -100,15 +100,15 @@ func runHTTPServer() {
 		Handler: r,
 	}
 
-	logger.Info("HTTP server listening on :8080")
+	logrus.Info("HTTP server listening on :8080")
 	if err := srv.ListenAndServe(); err != nil {
-		logger.Fatalf("HTTP server failed: %v", err)
+		logrus.Fatalf("HTTP server failed: %v", err)
 	}
 }
 
 func runHTTPSServer() {
 	gin.SetMode(gin.ReleaseMode) // 设置Gin为发布模式
-	r := gin.New()
+	r := gin.Default()
 	r.Use(gin.Recovery()) // 使用Gin的恢复中间件
 
 	// 注册路由
@@ -123,9 +123,9 @@ func runHTTPSServer() {
 		},
 	}
 
-	logger.Info("HTTPS server listening on :8443")
+	logrus.Info("HTTPS server listening on :8443")
 	if err := srv.ListenAndServeTLS("./cert.pem", "./key.pem"); err != nil {
-		logger.Fatalf("HTTPS server failed: %v", err)
+		logrus.Fatalf("HTTPS server failed: %v", err)
 	}
 }
 
@@ -153,7 +153,7 @@ func handleConnection(c *gin.Context, isPusher bool) {
 
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil) // 升级连接
 	if err != nil {
-		logger.Errorf("Failed to upgrade connection: %v", err)
+		logrus.Errorf("Failed to upgrade connection: %v", err)
 		return
 	}
 
@@ -185,14 +185,14 @@ func handleConnection(c *gin.Context, isPusher bool) {
 		}
 		r.PusherConn = conn
 		r.PusherID = clientID
-		logger.Infof("Pusher connected: %s in room: %s", clientID, roomID)
+		logrus.Infof("Pusher connected: %s in room: %s", clientID, roomID)
 	} else {
 		if r.PullerConn != nil {
 			r.PullerConn.Close() // 关闭现有拉取者连接
 		}
 		r.PullerConn = conn
 		r.PullerID = clientID
-		logger.Infof("Puller connected: %s in room: %s", clientID, roomID)
+		logrus.Infof("Puller connected: %s in room: %s", clientID, roomID)
 	}
 
 	r.Unlock()
@@ -213,7 +213,7 @@ func handleConnection(c *gin.Context, isPusher bool) {
 				r.PullerID = ""
 			}
 			r.Unlock()
-			logger.Infof("Client disconnected: %s in room: %s", clientID, roomID)
+			logrus.Infof("Client disconnected: %s in room: %s", clientID, roomID)
 		}()
 
 		for {
