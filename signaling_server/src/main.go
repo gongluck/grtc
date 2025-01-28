@@ -2,7 +2,7 @@
  * @Author: gongluck
  * @Date: 2025-01-28 18:59:59
  * @Last Modified by: gongluck
- * @Last Modified time: 2025-01-29 00:21:37
+ * @Last Modified time: 2025-01-29 01:01:32
  */
 
 package main
@@ -86,14 +86,29 @@ func initlog() {
 	})
 }
 
-func runHTTPServer() {
+// gin设置
+func initgin() *gin.Engine {
 	gin.SetMode(gin.ReleaseMode) // 设置Gin为发布模式
 	r := gin.Default()
-	r.Use(gin.Recovery()) // 使用Gin的恢复中间件
+	r.Use(func(c *gin.Context) {
+		c.Header("Access-Control-Allow-Origin", "*") // 允许所有来源
+		c.Header("Access-Control-Allow-Headers", "Content-Type")
+		c.Header("Access-Control-Allow-Methods", "GET, OPTIONS")
+		if c.Request.Method == http.MethodOptions {
+			c.AbortWithStatus(http.StatusNoContent) // 处理预检请求
+			return
+		}
+		c.Next()
+	}, gin.Recovery()) // 使用Gin的恢复中间件
 
 	// 注册路由
 	registerRoutes(r)
 
+	return r
+}
+
+func runHTTPServer() {
+	r := initgin()
 	// HTTP服务器配置
 	srv := &http.Server{
 		Addr:    ":8080", // 监听8080端口
@@ -107,13 +122,8 @@ func runHTTPServer() {
 }
 
 func runHTTPSServer() {
-	gin.SetMode(gin.ReleaseMode) // 设置Gin为发布模式
-	r := gin.Default()
-	r.Use(gin.Recovery()) // 使用Gin的恢复中间件
-
-	// 注册路由
-	registerRoutes(r)
-
+	// 设置gin
+	r := initgin()
 	// HTTPS服务器配置
 	srv := &http.Server{
 		Addr:    ":8443", // 监听8443端口
@@ -239,25 +249,22 @@ func heartbeatTicker(conn *connection) {
 	ticker := time.NewTicker(heartbeatInterval) // 创建心跳定时器
 	defer ticker.Stop()
 
-	for {
-		select {
-		case <-ticker.C:
-			conn.Lock()
-			// 检查最后活动时间
-			if time.Since(conn.lastActive) > pongWait {
-				conn.ws.Close() // 关闭连接
-				conn.Unlock()
-				return
-			}
-
-			// 发送Ping
-			conn.ws.SetWriteDeadline(time.Now().Add(writeWait))
-			if err := conn.ws.WriteMessage(websocket.PingMessage, nil); err != nil {
-				conn.Unlock()
-				return
-			}
+	for range ticker.C {
+		conn.Lock()
+		// 检查最后活动时间
+		if time.Since(conn.lastActive) > pongWait {
+			conn.ws.Close() // 关闭连接
 			conn.Unlock()
+			return
 		}
+
+		// 发送Ping
+		conn.ws.SetWriteDeadline(time.Now().Add(writeWait))
+		if err := conn.ws.WriteMessage(websocket.PingMessage, nil); err != nil {
+			conn.Unlock()
+			return
+		}
+		conn.Unlock()
 	}
 }
 
