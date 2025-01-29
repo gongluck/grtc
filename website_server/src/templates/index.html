@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8"> <!-- 设置字符编码为 UTF-8 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> <!-- 响应式设计 -->
+    <title>GRTC</title> <!-- 页面标题 -->
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            /* 设置字体为 Arial 或无衬线字体 */
+            margin: 20px;
+            /* 设置页面边距为 20px */
+        }
+
+        table {
+            width: 100%;
+            /* 表格宽度占满父容器 */
+            border-collapse: collapse;
+            /* 合并表格边框 */
+            margin-top: 20px;
+            /* 表格上边距为 20px */
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            /* 单元格边框为 1px 灰色 */
+            padding: 8px;
+            /* 单元格内边距为 8px */
+            text-align: left;
+            /* 单元格内容左对齐 */
+        }
+
+        th {
+            background-color: #f2f2f2;
+            /* 表头背景颜色为浅灰色 */
+        }
+
+        #loading {
+            display: none;
+            /* 初始时隐藏加载指示器 */
+            font-size: 16px;
+            /* 加载指示器字体大小为 16px */
+            color: #333;
+            /* 加载指示器字体颜色 */
+        }
+
+        .join-button,
+        .push-button {
+            background-color: #4CAF50;
+            /* 按钮背景颜色为绿色 */
+            color: white;
+            /* 按钮文字颜色为白色 */
+            border: none;
+            /* 无边框 */
+            padding: 8px 12px;
+            /* 按钮内边距 */
+            cursor: pointer;
+            /* 鼠标指针变为手形 */
+            border-radius: 4px;
+            /* 按钮圆角 */
+        }
+
+        .join-button:hover,
+        .push-button:hover {
+            background-color: #45a049;
+            /* 悬停时按钮背景颜色变为稍暗的绿色 */
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>All Status</h1> <!-- 主标题 -->
+    <button id="refreshBtn">Refresh Status</button> <!-- 刷新状态按钮 -->
+    <button id="pushStreamBtn" class="push-button">Open Push Stream Page</button> <!-- 打开推流页面按钮 -->
+    <p>Your Unique ID: <span id="uniqueId"></span></p> <!-- 显示用户的唯一 ID -->
+    <p id="loading">Loading...</p> <!-- 加载指示器 -->
+    <table id="statusTable"> <!-- 房间状态表 -->
+        <thead>
+            <tr>
+                <th>Room ID</th> <!-- 房间 ID 列 -->
+                <th>Pusher ID</th> <!-- 推流者 ID 列 -->
+                <th>Puller ID</th> <!-- 拉流者 ID 列 -->
+                <th>Active Status</th> <!-- 活动状态列 -->
+                <th>Action</th> <!-- 操作列 -->
+            </tr>
+        </thead>
+        <tbody>
+            <!-- 房间信息将动态插入这里 -->
+        </tbody>
+    </table>
+
+    <script>
+        // 从模板中获取信令服务的 URL
+        const signalServiceURL = "{{ .SignalServiceURL }}"; // 替换为实际的服务 URL
+        const statusURL = `${signalServiceURL}/status`; // 构造状态 URL
+
+        // 生成随机 UUID 的函数
+        function generateUUID() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+                const r = Math.random() * 16 | 0, // 生成 0-15 的随机数
+                    v = c === 'x' ? r : (r & 0x3 | 0x8); // 根据字符生成相应的 UUID 部分
+                return v.toString(16); // 返回随机生成的十六进制数
+            });
+        }
+
+        // 从 localStorage 获取唯一标识符
+        let uniqueId = localStorage.getItem('uniqueId'); // 尝试从 localStorage 获取唯一 ID
+        if (!uniqueId) {
+            uniqueId = generateUUID(); // 如果没有，生成一个新的 UUID
+            localStorage.setItem('uniqueId', uniqueId); // 存储在 localStorage 中以便后续使用
+        }
+        document.getElementById('uniqueId').innerText = uniqueId; // 显示唯一标识符
+
+        // 获取房间状态的异步函数
+        async function fetchStatus() {
+            const loadingIndicator = document.getElementById('loading'); // 获取加载指示器
+            loadingIndicator.style.display = 'block'; // 显示加载指示器
+            try {
+                const response = await fetch(statusURL); // 从拼接的状态 URL 请求数据
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`); // 检查 HTTP 响应状态
+                }
+                const data = await response.json(); // 解析 JSON 数据
+                const tableBody = document.querySelector('#statusTable tbody'); // 获取表格的 tbody
+                tableBody.innerHTML = ''; // 清空表格内容
+
+                // 遍历房间数据并填充表格
+                Object.keys(data).forEach(roomID => {
+                    const room = data[roomID]; // 获取当前房间的数据
+                    const row = document.createElement('tr'); // 创建新的行
+                    row.innerHTML = `
+                    <td>${roomID}</td> <!-- 房间 ID -->
+                    <td>${room.pusher_id || 'None'}</td> <!-- 推流者 ID -->
+                    <td>${room.puller_id || 'None'}</td> <!-- 拉流者 ID -->
+                    <td>${room.active ? 'Yes' : 'No'}</td> <!-- 活动状态 -->
+                    <td>${room.pusher_id ? `<button class="join-button" onclick="joinRoom('${roomID}')">Join Room</button>` : ''}</td> <!-- 操作按钮 -->
+                `;
+                    tableBody.appendChild(row); // 将新行添加到表格中
+                });
+            } catch (error) {
+                console.error('Error fetching status:', error); // 错误处理
+                alert('Failed to fetch status. Please try again later.'); // 用户友好的错误提示
+            } finally {
+                loadingIndicator.style.display = 'none'; // 隐藏加载指示器
+            }
+        }
+
+        // 加入房间的函数
+        function joinRoom(roomID) {
+            const pullerURL = `./puller.html?roomId=${roomID}`; // 构造拉流网页的 URL，包含房间 ID
+            window.open(pullerURL, '_blank'); // 在新标签页中打开拉流网页
+        }
+
+        // 新增按钮事件，打开推流页面
+        document.getElementById('pushStreamBtn').addEventListener('click', () => {
+            const pusherURL = `./pusher.html?roomId=${uniqueId}`; // 使用唯一 ID 作为房间 ID
+            window.open(pusherURL, '_blank'); // 在新标签页中打开推流网页
+        });
+
+        // 刷新状态按钮的点击事件
+        document.getElementById('refreshBtn').addEventListener('click', fetchStatus); // 绑定按钮点击事件
+
+        // 页面加载时自动获取状态
+        window.onload = fetchStatus; // 页面加载时自动获取状态
+
+    </script>
+
+</body>
+
+</html>

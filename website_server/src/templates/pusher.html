@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pusher Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        video {
+            width: 100%;
+            max-width: 600px;
+            border: 1px solid black;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>Pusher Room</h1>
+    <p id="roomId"></p>
+    <p id="status">Connecting...</p>
+    <p>Your Unique ID: <span id="uniqueId"></span></p>
+    <video id="localVideo" autoplay playsinline></video>
+
+    <script>
+        let uniqueId = localStorage.getItem('uniqueId');
+        document.getElementById('uniqueId').innerText = uniqueId;
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const roomId = urlParams.get('roomId');
+        document.getElementById('roomId').innerText = `Room ID: ${roomId}`;
+
+        const signalingServiceURL = "{{ .SignalServiceURL }}";
+        const protocol = signalingServiceURL.startsWith("https") ? "wss" : "ws";
+        const signalingSocketURL = `${protocol}://${signalingServiceURL.replace(/^https?:\/\//, '')}/${roomId}/pusher/${uniqueId}`;
+        const signalingSocket = new WebSocket(signalingSocketURL);
+
+        let peerConnection;
+        const localVideo = document.getElementById('localVideo');
+
+        signalingSocket.onopen = () => {
+            console.log('Connected to signaling server');
+        };
+
+        signalingSocket.onmessage = async (message) => {
+            const data = JSON.parse(message.data);
+            console.log('Received message: ', data);
+            if (data.offer) {
+                await handleOffer(data.offer);
+            } else if (data.candidate) {
+                await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+            }
+        };
+
+        async function handleOffer(offer) {
+            // 如果已有连接，关闭旧的连接和流
+            if (peerConnection) {
+                peerConnection.close(); // 关闭旧的 PeerConnection
+            }
+
+            // 获取新的媒体流
+            const localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            localVideo.srcObject = localStream;
+
+            // 使用 Google 的 STUN 服务器创建 RTCPeerConnection
+            const iceServers = {
+                //收集ICE候选时要使用的媒体捆绑策略
+                bundlePolicy: "max-bundle",
+                //仅为RTP收集ICE候选，并在RTP候选上复用RTCP。如果远程端点不支持rtcp-mux，会话协商将失败。
+                rtcpMuxPolicy: "require",
+                //收集ICE候选的类型
+                iceTransportPolicy: "all", //relay all
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' }, // Google STUN 服务器
+                    { urls: 'turn:47.107.105.60:3478', username: "xiaofa", credential: "123456" }
+                ]
+            };
+            // 创建新的 RTCPeerConnection 实例
+            peerConnection = new RTCPeerConnection(iceServers);
+
+            // 将新的流添加到 PeerConnection
+            localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate) {
+                    signalingSocket.send(JSON.stringify({ candidate: event.candidate, roomId: roomId, uniqueId: uniqueId }));
+                }
+            };
+
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+            signalingSocket.send(JSON.stringify({ answer: answer, roomId: roomId, uniqueId: uniqueId }));
+            console.log('Answer sent:', answer);
+        }
+    </script>
+
+</body>
+
+</html>
