@@ -12,9 +12,7 @@ cp -r templates ../../bin/website_server/
 
 cd $root/pusher/src
 apt install gcc-arm-linux-gnueabi
-export GOOS=android
-export GOARCH=arm64
-go build -o ../../bin/pusher/pusher_android_arm64 main.go
+GOOS=android GOARCH=arm64 go build -tags android -o ../../bin/pusher/pusher_android_arm64 main.go
 
 export GOOS=windows
 export GOARCH=amd64

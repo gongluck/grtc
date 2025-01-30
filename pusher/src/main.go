@@ -2,7 +2,7 @@
  * @Author: gongluck
  * @Date: 2025-01-29 20:06:25
  * @Last Modified by: gongluck
- * @Last Modified time: 2025-01-29 20:18:54
+ * @Last Modified time: 2025-01-29 22:43:24
  */
 
 package main
@@ -12,6 +12,7 @@ import (
 	"log"
 	"pusher/transport"
 	"pusher/util"
+	"pusher/webrtc"
 	"time"
 )
 
@@ -26,8 +27,14 @@ func main() {
 	// 获取唯一设备 ID（MAC 地址）
 	deviceID := util.GetDeviceID()
 
+	// 定义消息处理函数
+	messageHandler := func(message []byte) {
+		log.Printf("Received message: %s\n", message)
+		webrtc.HandleSignaling(message)
+	}
+
 	// 启动 WebSocket 客户端
-	client := transport.NewWebSocketClient(signalServiceURL+"/"+deviceID+"/pusher/"+deviceID, deviceID)
+	client := transport.NewWebSocketClient(signalServiceURL+"/"+deviceID+"/pusher/"+deviceID, deviceID, messageHandler)
 
 	// 尝试连接并保持连接状态
 	for {
