@@ -5,12 +5,11 @@
  * @Author: gongluck
  * @Date: 2025-01-29 22:41:22
  * @Last Modified by: gongluck
- * @Last Modified time: 2025-01-31 01:29:25
+ * @Last Modified time: 2025-01-31 19:49:00
  */
 
 package webrtc
 
-//go:generate rm -f ./cpp/c++_android.o
 //go:generate ${CC} -c ./cpp/c++.cpp -o ./cpp/c++_android.o
 
 /*

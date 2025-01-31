@@ -27,6 +27,7 @@ export CXX=$ANDROID_NDK_BIN/aarch64-linux-android21-clang++
 export CGO_CFLAGS=""
 export CGO_CXXFLAGS=""
 export CGO_LDFLAGS="$ANDROID_NDK_SYSROOT/usr/lib/aarch64-linux-android/21/libc++.a"
+rm webrtc/cpp/c++_android.o
 # 生成 C++ 对象文件
 go generate -tags android ./...
 # 编译 Go 代码
